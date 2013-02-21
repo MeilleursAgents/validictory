@@ -38,6 +38,18 @@ class FieldValidationError(ValidationError):
         self.value = value
 
 
+class ErrorBuffer(Exception):
+    """
+    errors encountred in processing are buffered inside `errors` attribute.
+
+    if you configured :class:`SchemaValidator` raise_at_first_error to False
+    then when processing has finished, in case of any :class:`FieldValidationError`
+    you will get an `ErrorBuffer` Exception instead.
+    """
+    def __init__(self):
+        self.errors = []
+
+
 def _generate_datetime_validator(format_option, dateformat_string):
     def validate_format_datetime(validator, fieldname, value, format_option):
         try:
@@ -99,10 +111,13 @@ class SchemaValidator(object):
         schema attribute True by default.
     :param disallow_unknown_properties: defaults to False, set to True to
         disallow properties not listed in the schema definition
+    :param raise_at_first_error: defaults to True, set to False if you want
+       to bufferize errors and treat them later.
     '''
 
     def __init__(self, format_validators=None, required_by_default=True,
-                 blank_by_default=False, disallow_unknown_properties=False):
+                 blank_by_default=False, disallow_unknown_properties=False,
+                 raise_at_first_error=True):
         if format_validators is None:
             format_validators = DEFAULT_FORMAT_VALIDATORS.copy()
 
@@ -110,6 +125,8 @@ class SchemaValidator(object):
         self.required_by_default = required_by_default
         self.blank_by_default = blank_by_default
         self.disallow_unknown_properties = disallow_unknown_properties
+        self.raise_at_first_error = raise_at_first_error
+        self.error_buffer = ErrorBuffer()
 
     def register_format_validator(self, format_name, format_validator_fun):
         self._format_validators[format_name] = format_validator_fun
@@ -558,8 +575,11 @@ class SchemaValidator(object):
         '''
         self._validate(data, schema)
 
+
     def _validate(self, data, schema):
         self.__validate("_data", {"_data": data}, schema)
+        if self.error_buffer.errors:
+            raise self.error_buffer
 
     def __validate(self, fieldname, data, schema):
 
@@ -589,9 +609,14 @@ class SchemaValidator(object):
 
                 validator = getattr(self, validatorname, None)
                 if validator:
-                    validator(data, fieldname, schema,
-                              newschema.get(schemaprop))
+                    try:
+                        validator(data, fieldname, schema,
+                                  newschema.get(schemaprop))
+                    except FieldValidationError as e:
+                        if self.raise_at_first_error:
+                            raise e
+                        self.error_buffer.errors.append(e)
 
         return data
 
-__all__ = ['SchemaValidator', 'FieldValidationError']
+__all__ = ['SchemaValidator', 'FieldValidationError', 'ErrorBuffer']
