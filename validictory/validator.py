@@ -14,16 +14,16 @@ else:
     _int_types = (int, long)
 
 
-class SchemaError(ValueError):
-    """
-    errors encountered in processing a schema (subclass of :class:`ValueError`)
-    """
-
-
 class ValidationError(ValueError):
     """
     validation errors encountered during validation (subclass of
     :class:`ValueError`)
+    """
+
+
+class SchemaError(ValidationError):
+    """
+    errors encountered in processing a schema (subclass of :class:`ValueError`)
     """
 
 
@@ -36,6 +36,22 @@ class FieldValidationError(ValidationError):
         super(FieldValidationError, self).__init__(message)
         self.fieldname = fieldname
         self.value = value
+
+
+class FieldsValidationError(ValueError):
+    """
+    errors encountred in processing are buffered.
+
+    if you configured :class:`SchemaValidator` raise_at_first_error to False
+    then when processing has finished, in case of any :class:`FieldValidationError`
+    you will get a `FieldsValidationError` Exception instead.
+    """
+
+    def __init__(self):
+        self.errors = []
+
+    def append(self, validation_error):
+        self.errors.append(validation_error)
 
 
 def _generate_datetime_validator(format_option, dateformat_string):
@@ -102,10 +118,13 @@ class SchemaValidator(object):
         schema attribute True by default.
     :param disallow_unknown_properties: defaults to False, set to True to
         disallow properties not listed in the schema definition
+    :param raise_at_first_error: defaults to True, set to False if you want
+       to bufferize errors and treat them later.
     '''
 
     def __init__(self, format_validators=None, required_by_default=True,
-                 blank_by_default=False, disallow_unknown_properties=False):
+                 blank_by_default=False, disallow_unknown_properties=False,
+                 raise_at_first_error=True):
         if format_validators is None:
             format_validators = DEFAULT_FORMAT_VALIDATORS.copy()
 
@@ -113,6 +132,8 @@ class SchemaValidator(object):
         self.required_by_default = required_by_default
         self.blank_by_default = blank_by_default
         self.disallow_unknown_properties = disallow_unknown_properties
+        self.raise_at_first_error = raise_at_first_error
+        self.validation_errors = FieldsValidationError()
 
     def register_format_validator(self, format_name, format_validator_fun):
         self._format_validators[format_name] = format_validator_fun
@@ -223,8 +244,13 @@ class SchemaValidator(object):
                 if isinstance(properties, dict):
 
                     if self.disallow_unknown_properties:
-                        self._validate_unknown_properties(properties, value,
-                                                          fieldname)
+                        try:
+                            self._validate_unknown_properties(properties, value,
+                                                              fieldname)
+                        except SchemaError as exception:
+                            if self.raise_at_first_error:
+                                raise exception
+                            self.validation_errors.append(exception)
 
                     for eachProp in properties:
                         self.__validate(eachProp, value,
@@ -263,7 +289,6 @@ class SchemaValidator(object):
                                 'properties' in items):
                             self._validate_unknown_properties(
                                 items['properties'], eachItem, fieldname)
-
                         try:
                             self._validate(eachItem, items)
                         except FieldValidationError as e:
@@ -569,8 +594,11 @@ class SchemaValidator(object):
         '''
         self._validate(data, schema)
 
+
     def _validate(self, data, schema):
         self.__validate("_data", {"_data": data}, schema)
+        if self.validation_errors.errors:
+            raise self.validation_errors
 
     def __validate(self, fieldname, data, schema):
 
@@ -595,14 +623,16 @@ class SchemaValidator(object):
                 newschema['blank'] = self.blank_by_default
 
             for schemaprop in newschema:
-
                 validatorname = "validate_" + schemaprop
-
                 validator = getattr(self, validatorname, None)
-                if validator:
-                    validator(data, fieldname, schema,
-                              newschema.get(schemaprop))
-
+                if not validator:
+                    continue
+                try:
+                    validator(data, fieldname, schema, newschema.get(schemaprop))
+                except ValueError as exception:
+                    if self.raise_at_first_error:
+                        raise exception
+                    self.validation_errors.append(exception)
         return data
 
-__all__ = ['SchemaValidator', 'FieldValidationError']
+__all__ = ['FieldValidationError', 'FieldsValidationError', 'SchemaValidator']
