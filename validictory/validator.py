@@ -60,7 +60,7 @@ def _generate_datetime_validator(format_option, dateformat_string):
             datetime.strptime(value, dateformat_string)
         except (TypeError, ValueError):
             raise FieldValidationError(
-                "Value %(value)r of field '%(fieldname)s' is not in "
+                "Value '%(value)s' of field '%(fieldname)s' is not in "
                 "'%(format_option)s' format" % locals(), fieldname, value)
 
     return validate_format_datetime
@@ -73,12 +73,12 @@ validate_format_time = _generate_datetime_validator('time', '%H:%M:%S')
 
 def validate_format_utc_millisec(validator, fieldname, value, format_option):
     if not isinstance(value, _int_types + (float, Decimal)):
-        raise FieldValidationError("Value %(value)r of field '%(fieldname)s' "
+        raise FieldValidationError("Value '%(value)s' of field '%(fieldname)s' "
                                    "is not a number" % locals(), fieldname,
                                    value)
 
     if not value > 0:
-        raise FieldValidationError("Value %(value)r of field '%(fieldname)s' "
+        raise FieldValidationError("Value '%(value)s' of field '%(fieldname)s' "
                                    " is not a positive number" % locals(),
                                    fieldname, value)
 
@@ -92,7 +92,7 @@ def validate_format_ip_address(validator, fieldname, value, format_option):
     except:
         ip = False
     if not ip:
-        raise FieldValidationError("Value %(value)r of field '%(fieldname)s'"
+        raise FieldValidationError("Value '%(value)s' of field '%(fieldname)s'"
                                    "is not a ip-address" % locals(), fieldname,
                                    value)
 
@@ -209,7 +209,7 @@ class SchemaValidator(object):
                     except ValidationError as err:
                         errorlist.append(err)
                 if not datavalid:
-                    self._error("Value %(value)r for field '%(fieldname)s' "
+                    self._error("Value '%(value)s' for field '%(fieldname)s' "
                                 "doesn't match any of %(numsubtypes)d "
                                 "subtypes in %(fieldtype)s; "
                                 "errorlist = %(errorlist)r",
@@ -229,7 +229,7 @@ class SchemaValidator(object):
                                       fieldtype)
 
                 if not type_checker(value):
-                    self._error("Value %(value)r for field '%(fieldname)s' "
+                    self._error("Value '%(value)s' for field '%(fieldname)s' "
                                 "is not of type %(fieldtype)s",
                                 value, fieldname, fieldtype=fieldtype)
 
@@ -270,7 +270,7 @@ class SchemaValidator(object):
                 if isinstance(items, (list, tuple)):
                     if (not 'additionalItems' in schema and
                             len(items) != len(value)):
-                        self._error("Length of list %(value)r for field "
+                        self._error("Length of list '%(value)s' for field "
                                     "'%(fieldname)s' is not equal to length "
                                     "of schema list", value, fieldname)
                     else:
@@ -319,7 +319,7 @@ class SchemaValidator(object):
         '''
         value = x.get(fieldname)
         if isinstance(value, _str_type) and not blank and not value:
-            self._error("Value %(value)r for field '%(fieldname)s' cannot be "
+            self._error("Value '%(value)s' for field '%(fieldname)s' cannot be "
                         "blank'", value, fieldname)
 
     def validate_patternProperties(self, x, fieldname, schema,
@@ -346,7 +346,7 @@ class SchemaValidator(object):
             if additionalItems or 'items' not in schema:
                 return
             elif len(value) != len(schema['items']):
-                self._error("Length of list %(value)r for field "
+                self._error("Length of list '%(value)s' for field "
                             "'%(fieldname)s' is not equal to length of schema "
                             "list", value, fieldname)
 
@@ -432,7 +432,7 @@ class SchemaValidator(object):
                 if (type(value) in (int, float) and
                     (not exclusive and value < minimum) or
                         (exclusive and value <= minimum)):
-                    self._error("Value %(value)r for field '%(fieldname)s' is "
+                    self._error("Value '%(value)s' for field '%(fieldname)s' is "
                                 "less than minimum value: %(minimum)f",
                                 value, fieldname, minimum=minimum)
 
@@ -450,7 +450,7 @@ class SchemaValidator(object):
                 if (type(value) in (int, float) and
                     (not exclusive and value > maximum) or
                         (exclusive and value >= maximum)):
-                    self._error("Value %(value)r for field '%(fieldname)s' is "
+                    self._error("Value '%(value)s' for field '%(fieldname)s' is "
                                 "greater than maximum value: %(maximum)f",
                                 value, fieldname, maximum=maximum)
 
@@ -461,7 +461,7 @@ class SchemaValidator(object):
         '''
         value = x.get(fieldname)
         if isinstance(value, (_str_type, list, tuple)) and len(value) > length:
-            self._error("Length of value %(value)r for field '%(fieldname)s' "
+            self._error("Length of value '%(value)s' for field '%(fieldname)s' "
                         "must be less than or equal to %(length)d",
                         value, fieldname, length=length)
 
@@ -472,7 +472,7 @@ class SchemaValidator(object):
         '''
         value = x.get(fieldname)
         if isinstance(value, (_str_type, list, tuple)) and len(value) < length:
-            self._error("Length of value %(value)r for field '%(fieldname)s' "
+            self._error("Length of value '%(value)s' for field '%(fieldname)s' "
                         "must be greater than or equal to %(length)d",
                         value, fieldname, length=length)
 
@@ -500,7 +500,7 @@ class SchemaValidator(object):
         value = x.get(fieldname)
         if isinstance(value, _str_type):
             if not re.match(pattern, value):
-                self._error("Value %(value)r for field '%(fieldname)s' does "
+                self._error("Value '%(value)s' for field '%(fieldname)s' does "
                             "not match regular expression '%(pattern)s'",
                             value, fieldname, pattern=pattern)
 
@@ -531,7 +531,7 @@ class SchemaValidator(object):
 
             if value in container:
                 self._error(
-                    "Value %(value)r for field '%(fieldname)s' is not unique",
+                    "Value '%(value)s' for field '%(fieldname)s' is not unique",
                     value, fieldname)
             else:
                 add(value)
@@ -547,7 +547,7 @@ class SchemaValidator(object):
                 raise SchemaError("Enumeration %r for field '%s' must be a "
                                   "container", (options, fieldname))
             if value not in options:
-                self._error("Value %(value)r for field '%(fieldname)s' is not "
+                self._error("Value '%(value)s' for field '%(fieldname)s' is not "
                             "in the enumeration: %(options)r",
                             value, fieldname, options=options)
 
@@ -571,7 +571,7 @@ class SchemaValidator(object):
             raise SchemaError("'%r' <- divisibleBy can not be 0" % schema)
 
         if value % divisibleBy != 0:
-            self._error("Value %(value)r field '%(fieldname)s' is not "
+            self._error("Value '%(value)s' field '%(fieldname)s' is not "
                         "divisible by '%(divisibleBy)s'.",
                         x.get(fieldname), fieldname, divisibleBy=divisibleBy)
 
@@ -584,7 +584,7 @@ class SchemaValidator(object):
             self.validate_type(x, fieldname, schema, disallow)
         except ValidationError:
             return
-        self._error("Value %(value)r of type %(disallow)s is disallowed for "
+        self._error("Value '%(value)s' of type %(disallow)s is disallowed for "
                     "field '%(fieldname)s'",
                     x.get(fieldname), fieldname, disallow=disallow)
 
