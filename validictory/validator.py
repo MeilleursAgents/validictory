@@ -118,20 +118,32 @@ class SchemaValidator(object):
         schema attribute True by default.
     :param disallow_unknown_properties: defaults to False, set to True to
         disallow properties not listed in the schema definition
+    :param apply_default_to_data: defaults to False, set to True to modify the
+        data in case the schema definition includes a "default" property
     :param raise_at_first_error: defaults to True, set to False if you want
        to bufferize errors and treat them later.
     '''
 
     def __init__(self, format_validators=None, required_by_default=True,
                  blank_by_default=False, disallow_unknown_properties=False,
-                 raise_at_first_error=True):
+                 apply_default_to_data=False, raise_at_first_error=True):
         if format_validators is None:
             format_validators = DEFAULT_FORMAT_VALIDATORS.copy()
 
-        self._format_validators = format_validators
+        self._format_validators = {}
+
+        # add the default format validators
+        for key, value in DEFAULT_FORMAT_VALIDATORS.items():
+            self.register_format_validator(key, value)
+
+        # register any custom format validators if they were provided
+        if format_validators:
+            for key, value in format_validators.items():
+                self.register_format_validator(key, value)
         self.required_by_default = required_by_default
         self.blank_by_default = blank_by_default
         self.disallow_unknown_properties = disallow_unknown_properties
+        self.apply_default_to_data = apply_default_to_data
         self.raise_at_first_error = raise_at_first_error
         self.validation_errors = FieldsValidationError()
 
@@ -374,18 +386,21 @@ class SchemaValidator(object):
         value = x.get(fieldname)
         if isinstance(additionalProperties, (dict, bool)):
             properties = schema.get("properties")
+            patterns = schema["patternProperties"].keys() if 'patternProperties' in schema else []
             if properties is None:
                 properties = {}
             if value is None:
                 value = {}
             for eachProperty in value:
-                if eachProperty not in properties:
+                if eachProperty not in properties and not \
+                   any(re.match(p, eachProperty) for p in patterns):
                     # If additionalProperties is the boolean value False
                     # then we don't accept any additional properties.
                     if (isinstance(additionalProperties, bool) and not
                             additionalProperties):
                         self._error("additional property '%(prop)s' "
-                                    "not defined by 'properties' are not "
+                                    "not defined by 'properties' or "
+                                    "'patternProperties' are not "
                                     "allowed in field '%(fieldname)s'",
                                     None, fieldname, prop=eachProperty)
                     self.__validate(eachProperty, value,
@@ -543,6 +558,8 @@ class SchemaValidator(object):
         '''
         value = x.get(fieldname)
         if value is not None:
+            if callable(options):
+                options = options(x)
             if not isinstance(options, Container):
                 raise SchemaError("Enumeration %r for field '%s' must be a "
                                   "container", (options, fieldname))
@@ -625,14 +642,32 @@ class SchemaValidator(object):
             for schemaprop in newschema:
                 validatorname = "validate_" + schemaprop
                 validator = getattr(self, validatorname, None)
-                if not validator:
-                    continue
+
+                if validator:
+                    try:
+                        validator(data, fieldname, schema,
+                                  newschema.get(schemaprop))
+                    except ValueError as exception:
+                        if self.raise_at_first_error:
+                            raise exception
+                        self.validation_errors.append(exception)
+
+            if self.apply_default_to_data and 'default' in schema:
                 try:
-                    validator(data, fieldname, schema, newschema.get(schemaprop))
-                except ValueError as exception:
+                    self.validate_type(
+                        x={'_ds': schema['default']},
+                        fieldname='_ds',
+                        schema=schema,
+                        fieldtype=schema['type'] if 'type' in schema else None
+                    )
+                except FieldValidationError as exc:
                     if self.raise_at_first_error:
-                        raise exception
-                    self.validation_errors.append(exception)
+                        raise SchemaError(exc)
+                    self.validation_errors.append(exc)
+
+                if not fieldname in data:
+                    data[fieldname] = schema['default']
+
         return data
 
 __all__ = ['FieldValidationError', 'FieldsValidationError', 'SchemaValidator']
