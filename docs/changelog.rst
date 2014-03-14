@@ -1,11 +1,26 @@
 validictory changelog
 =====================
 
+0.9.4
+-----
+    * fix TypeError from format validators
+
+0.9.3
+-----
+**2013-11-25**
+    * fix bad 0.9.2 release that didn't have a fix for invalid code from a PR
+
 0.9.2
 -----
-(in progress)
+**2013-11-25**
     * fix from Marc Abramowitz for validating dict-like things as dicts
-    * 
+    * fix for patternProperties from Juan Menéndez & James Clemence
+    * include implementation of "default" property from Daniel Rech
+    * drop official support for Python 3.2
+    * remove a test that relied on dict ordering
+    * updated docs from  Mark Grandi
+    * fix where format validators were cleared (also Mark Grandi)
+
 
 0.9.1
 -----

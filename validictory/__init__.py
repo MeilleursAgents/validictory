@@ -15,12 +15,13 @@ __all__ = [
     'validate',
     'ValidationError',
 ]
-__version__ = '0.9.1'
+__version__ = '0.9.3'
 
 
 def validate(data, schema, validator_cls=SchemaValidator,
              format_validators=None, required_by_default=True,
              blank_by_default=False, disallow_unknown_properties=False,
+             apply_default_to_data=False,
              raise_at_first_error=True):
     '''
     Validates a parsed json document against the provided schema. If an
@@ -40,9 +41,11 @@ def validate(data, schema, validator_cls=SchemaValidator,
         disallow properties not listed in the schema definition
     :param raise_at_first_error: defaults to True, set to False if you want
        to bufferize errors and treat them later.
+    :param apply_default_to_data: defaults to False, set to True to modify the
+        data in case the schema definition includes a "default" property
     '''
     v = validator_cls(format_validators, required_by_default, blank_by_default,
-                      disallow_unknown_properties, raise_at_first_error)
+                      disallow_unknown_properties, apply_default_to_data, raise_at_first_error)
     return v.validate(data, schema)
 
 if __name__ == '__main__':
