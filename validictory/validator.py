@@ -51,6 +51,8 @@ class FieldsValidationError(ValueError):
         self.errors = []
 
     def append(self, validation_error):
+        if isinstance(validation_error, FieldsValidationError):
+            return
         self.errors.append(validation_error)
 
 
